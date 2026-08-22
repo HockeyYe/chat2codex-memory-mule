@@ -1,22 +1,58 @@
 # Chat2Codex Memory Mule
 
-Make Codex remember it without making Codex read it all.
+[简体中文](README.md) | [English](README_EN.md)
 
-Chat2Codex Memory Mule is a repository-native Codex skill that turns shared ChatGPT conversations and existing project documentation into compact, durable project memory. It keeps Markdown as the interoperability layer, preserves provenance, and avoids silently duplicating or overwriting accepted knowledge.
+让 Codex 记住项目，而不必每次读完整个项目。
 
-> This is an independent community project and is not affiliated with or endorsed by OpenAI. ChatGPT and Codex are trademarks of their respective owner.
+Chat2Codex Memory Mule 是一个仓库原生的 Codex Skill：它会扫描项目中已有的知识源，也可以提炼公开的 ChatGPT 分享会话，再将它们整理为紧凑、可追溯、可长期维护的项目记忆。Markdown 是各类工具之间的兼容层；原始文件继续留在原位，已经接受的知识不会被静默覆盖。
 
-## What it does
+> 这是一个独立的社区项目，与 OpenAI 不存在隶属或背书关系。ChatGPT 和 Codex 是其各自权利人的商标。
 
-- Scans existing README files, ADRs, architecture documents, roadmaps, research, and engineering guidance.
-- Builds a lightweight `docs/project-memory/source-map.md` without moving or copying original documents.
-- Imports public `chatgpt.com/share/...` conversations through a replaceable normalized-reader interface.
-- Separates decisions, principles, research, ideas, open questions, plans, and rejected directions.
-- Merges supporting or extending knowledge instead of appending duplicates.
-- Flags conflicts for human review instead of changing accepted state silently.
-- Keeps raw transcripts local and gitignored by default.
+## 功能
 
-## Repository layout
+- 扫描 README、ADR、架构文档、路线图、研究材料和工程规范等现有知识源。
+- 生成轻量的 `docs/project-memory/source-map.md`，不移动或复制原文件。
+- 通过可替换的标准化读取接口导入公开的 `chatgpt.com/share/...` 会话。
+- 将内容归类为决策、原则、研究、想法、开放问题、计划和已否决方向。
+- 合并互相支持或扩展的知识，避免简单追加造成重复。
+- 遇到冲突时交给人审，而不是静默修改已接受状态。
+- 原始会话默认只保存在本地，并由 Git 忽略。
+
+## 记忆库架构
+
+```text
+项目现有知识源                 ChatGPT 分享会话
+README / ADR / docs / plans    chatgpt.com/share/...
+          │                              │
+          └──────────┬───────────────────┘
+                     ▼
+             扫描、标准化与来源记录
+                     ▼
+          分类、去重、关联与冲突检测
+                     ▼
+     docs/project-memory/   .project-memory/
+     可读的长期记忆          注册表与本地原文
+                     ▼
+             Codex 的项目上下文
+```
+
+这套结构将“当前共识”“主题知识”“会话经历”和“来源证据”分层保存。项目原文和已接受的 ADR 始终是权威来源；记忆库是它们的精简索引与派生视图，而不是替代品。
+
+## 设计参考与思想来源
+
+本项目没有照搬某个记忆框架，而是组合了下列公开思想，并针对仓库内、Markdown 优先、人工可审查的使用方式做了轻量化取舍：
+
+| 参考来源 | 借鉴的思想 | 在本项目中的对应设计 |
+| --- | --- | --- |
+| [OpenAI Codex：Use cases](https://learn.chatgpt.com/use-cases) | 将可重复的工作流程封装为可复用 Skill | 用 `SKILL.md` 描述稳定工作流，用 Python 助手承接确定性处理 |
+| [Michael Nygard：Documenting Architecture Decisions](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) | 用短小、带上下文和状态的记录保存架构决策，并保留被替代的历史 | `decisions/` 保存编号决策；冲突和替代关系需要显式审查 |
+| [MemGPT：Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560) | 通过分层记忆缓解有限上下文问题 | `current-state.md` 提供紧凑工作上下文，分类文档和会话记录承担长期记忆 |
+| [Generative Agents](https://arxiv.org/abs/2304.03442) | 从经历记录中提取更高层的反思，并让记忆支持后续计划 | `sessions/` 保存会话经历，原则、决策和计划文件保存逐步提炼的长期知识 |
+| [W3C PROV-O](https://www.w3.org/TR/prov-o/) | 来源追踪应描述信息、处理活动及其关系 | 保存来源 URL、处理时间、内容哈希、注册表和处理日志 |
+
+这些来源是设计参考，不是运行时依赖。本项目不是 MemGPT、Generative Agents 或 PROV-O 的完整实现，也不声称与这些项目兼容；它只采用了适合代码仓库记忆管理的概念。
+
+## 仓库结构
 
 ```text
 chat2codex-memory-mule/
@@ -26,20 +62,20 @@ chat2codex-memory-mule/
 └── scripts/memory_mule.py
 ```
 
-The folder above is the complete installable skill. Repository-level documentation, tests, and CI remain outside it.
+上面的目录就是完整、可安装的 Skill。仓库级文档、测试和 CI 放在该目录之外。
 
-## Requirements
+## 环境要求
 
-- Codex with personal skill support
-- Python 3.10 or newer
-- Git is recommended for reliable repository-root and tracked-file discovery
-- Network or browser access when importing a ChatGPT shared link
+- 支持个人 Skill 的 Codex
+- Python 3.10 或更高版本
+- 推荐安装 Git，以便可靠识别仓库根目录和受跟踪文件
+- 导入 ChatGPT 分享链接时需要网络或浏览器访问能力
 
-The helper uses only the Python standard library.
+Python 助手仅使用标准库。
 
-## Install
+## 安装
 
-Clone this repository, then copy the skill directory into your personal Codex skills folder.
+克隆仓库后，将 Skill 目录复制到个人 Codex Skills 目录。
 
 ### Windows PowerShell
 
@@ -50,37 +86,36 @@ Copy-Item `
   -Recurse
 ```
 
-### macOS or Linux
+### macOS 或 Linux
 
 ```bash
 cp -R ./chat2codex-memory-mule "${CODEX_HOME:-$HOME/.codex}/skills/chat2codex-memory-mule"
 ```
 
-Open a new Codex task after installation so the skill can be discovered.
+安装后新建一个 Codex 任务，使 Skill 能被发现。
 
-## Use
+## 使用方式
 
-Initialize memory and connect existing project knowledge:
+初始化记忆库并连接项目现有知识：
 
 ```text
-Use $chat2codex-memory-mule to initialize project memory in this repository.
+使用 $chat2codex-memory-mule 初始化这个仓库的项目记忆。
 ```
 
-Import a public ChatGPT shared conversation:
+导入公开的 ChatGPT 分享会话：
 
 ```text
-Use $chat2codex-memory-mule to process this conversation into project memory:
+使用 $chat2codex-memory-mule 将这个会话整理进项目记忆：
 https://chatgpt.com/share/...
 ```
 
-Organize one existing file without moving it:
+整理单个现有文件，但不移动它：
 
 ```text
-Use $chat2codex-memory-mule to organize docs/architecture.md into project memory.
-Keep the original file in place.
+使用 $chat2codex-memory-mule 将 docs/architecture.md 整理进项目记忆，保留原文件位置。
 ```
 
-The deterministic helper can also be invoked directly:
+也可以直接调用确定性助手：
 
 ```bash
 python chat2codex-memory-mule/scripts/memory_mule.py init --repo /path/to/repository
@@ -88,7 +123,7 @@ python chat2codex-memory-mule/scripts/memory_mule.py scan --repo /path/to/reposi
 python chat2codex-memory-mule/scripts/memory_mule.py status --repo /path/to/repository
 ```
 
-## Generated project memory
+## 生成的项目记忆
 
 ```text
 docs/project-memory/
@@ -107,33 +142,31 @@ docs/project-memory/
 └── raw/
 ```
 
-Original project documents and accepted ADRs remain authoritative. Project memory acts as a concise index and derived view.
+## 隐私与安全
 
-## Privacy and safety
+- 只处理你有权使用的会话。
+- 将 ChatGPT 分享链接视为可能公开的信息。
+- 提交前审阅提炼后的 Markdown。
+- 标准化的原始会话保存在 `.project-memory/raw/`，默认由 Git 忽略。
+- Skill 会要求 Codex 从受跟踪的记忆中移除密钥和不必要的个人信息。
+- 冲突知识必须经过明确的人工作出决定。
 
-- Only import conversations you are authorized to process.
-- Treat ChatGPT shared links as potentially public.
-- Review distilled Markdown before committing it.
-- Raw normalized transcripts are stored under `.project-memory/raw/` and ignored by default.
-- The skill instructs Codex to redact secrets and unnecessary personal information from tracked memory.
-- Conflicting knowledge is queued for explicit human resolution.
+## 开发与验证
 
-## Development
-
-Run the standard-library test suite:
+运行标准库测试：
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Validate the installable skill with Codex's `skill-creator` validator when available:
+如果本机有 Codex `skill-creator`，可运行其验证器：
 
 ```bash
 python /path/to/skill-creator/scripts/quick_validate.py chat2codex-memory-mule
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes.
+提交改动前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-## License
+## 许可证
 
-Licensed under the [MIT License](LICENSE).
+本项目采用 [MIT License](LICENSE)。
