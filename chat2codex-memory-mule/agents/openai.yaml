@@ -1,0 +1,4 @@
+interface:
+  display_name: "Chat2Codex"
+  short_description: "Connect project docs and ChatGPT sessions to durable memory"
+  default_prompt: "Use $chat2codex-memory-mule to scan this repository, connect its existing knowledge, and maintain durable project memory."

@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+.DS_Store
+Thumbs.db
+
+# Generated when this repository is used as a Chat2Codex target.
+.project-memory/
+docs/project-memory/
+
+# Local normalized conversation exports.
+normalized*.json
