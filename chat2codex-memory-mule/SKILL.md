@@ -111,9 +111,10 @@ Interpret the JSON status printed to stdout:
 
 - `ready`: continue with the normalized conversation at `output`.
 - `already_processed`: report that no new memory changes are required and stop.
+- `browser_fallback_required`: the non-browser reader could not recover the public conversation. Do not open a browser or read the conversation yet. Ask the user whether they want to authorize opening that exact public shared link in a browser as a fallback. If they confirm, obtain the complete conversation, convert it to the normalized interface documented in `references/memory-model.md`, and rerun `prepare` with `--input <normalized-json>`.
 - a nonzero exit: report the concise error. The helper records the failed inbox item and processing-log entry; do not modify accepted project memory.
 
-If the built-in reader cannot parse a currently valid shared page, obtain the full conversation with an available authenticated browser or supported connector, convert it to the normalized interface documented in `references/memory-model.md`, and rerun `prepare` with `--input <normalized-json>`. Do not bypass access controls or request private credentials.
+The non-browser reader supports current React Router stream frames from public share pages before requesting browser fallback. Never bypass access controls or request private credentials.
 
 ### 4. Distill conservatively
 

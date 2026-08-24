@@ -477,9 +477,132 @@ def normalize(payload: Any, url: str) -> dict[str, Any] | None:
     return None
 
 
+def javascript_call_arguments(script: str, token: str) -> Iterable[str]:
+    """Yield JSON arguments passed to a known inline JavaScript call."""
+    cursor = 0
+    while (start := script.find(token, cursor)) >= 0:
+        pos, depth, quoted, escaped = start + len(token), 0, False, False
+        end = pos
+        for end in range(pos, len(script)):
+            char = script[end]
+            if quoted:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    quoted = False
+            elif char == '"':
+                quoted = True
+            elif char in "[{":
+                depth += 1
+            elif char in "]}":
+                depth -= 1
+            elif char == ")" and depth == 0:
+                break
+        yield script[pos:end]
+        cursor = max(end + 1, pos + 1)
+
+
+def unflatten_react_router_payload(value: Any) -> Any:
+    """Restore React Router's compact table form without executing page JavaScript.
+
+    Current share pages send loader data as a JSON array. Object keys such as
+    ``_17`` point to the string at index 17, while integer values point to
+    other table entries. This is a data-only reconstruction of that graph.
+    """
+    if not isinstance(value, list):
+        return value
+    unresolved = object()
+    restored: list[Any] = [unresolved] * len(value)
+
+    def resolve_scalar(item: Any) -> Any:
+        if isinstance(item, bool) or not isinstance(item, int):
+            return item
+        if item >= 0:
+            return resolve(item)
+        # These are the special numeric values used by devalue-style payloads.
+        return {
+            -1: None,
+            -2: float("nan"),
+            -3: float("inf"),
+            -4: float("-inf"),
+            -5: -0.0,
+            -6: None,
+        }.get(item, item)
+
+    def resolve_inline(item: Any) -> Any:
+        if isinstance(item, dict):
+            result: dict[str, Any] = {}
+            for key, child in item.items():
+                if key.startswith("_") and key[1:].isdigit():
+                    decoded_key = resolve(int(key[1:]))
+                    if not isinstance(decoded_key, str):
+                        raise ValueError("React Router object key is not a string")
+                else:
+                    decoded_key = key
+                result[decoded_key] = resolve_inline(child)
+            return result
+        if isinstance(item, list):
+            return [resolve_inline(child) for child in item]
+        return resolve_scalar(item)
+
+    def resolve(index: int) -> Any:
+        if index < 0 or index >= len(value):
+            raise ValueError(f"React Router reference is out of range: {index}")
+        if restored[index] is not unresolved:
+            return restored[index]
+        raw = value[index]
+        if isinstance(raw, dict):
+            result: dict[str, Any] = {}
+            restored[index] = result
+            for key, child in raw.items():
+                if key.startswith("_") and key[1:].isdigit():
+                    decoded_key = resolve(int(key[1:]))
+                    if not isinstance(decoded_key, str):
+                        raise ValueError("React Router object key is not a string")
+                else:
+                    decoded_key = key
+                result[decoded_key] = resolve_inline(child)
+            return result
+        if isinstance(raw, list):
+            result: list[Any] = []
+            restored[index] = result
+            result.extend(resolve_inline(child) for child in raw)
+            return result
+        restored[index] = raw
+        return raw
+
+    return resolve(0)
+
+
+def react_router_payloads(scripts: Iterable[str]) -> Iterable[Any]:
+    """Extract data-only React Router stream frames from share-page scripts."""
+    token = "window.__reactRouterContext.streamController.enqueue("
+    for script in scripts:
+        for argument in javascript_call_arguments(script, token):
+            try:
+                frame = json.loads(argument)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(frame, str):
+                continue
+            try:
+                packed = json.loads(frame)
+            except json.JSONDecodeError:
+                # Deferred turbo-stream frames (for example, P123:...) are
+                # not needed to recover an already-rendered conversation.
+                continue
+            try:
+                yield unflatten_react_router_payload(packed)
+            except (TypeError, ValueError):
+                continue
+
+
 def html_payloads(source: str) -> Iterable[Any]:
     collector = Scripts()
     collector.feed(source)
+    yield from react_router_payloads(collector.values)
     for script in collector.values:
         stripped = script.strip()
         if stripped.startswith(("{", "[")):
@@ -487,29 +610,9 @@ def html_payloads(source: str) -> Iterable[Any]:
                 yield json.loads(stripped)
             except json.JSONDecodeError:
                 pass
-        token, cursor = "self.__next_f.push(", 0
-        while (start := script.find(token, cursor)) >= 0:
-            pos, depth, quoted, escaped = start + len(token), 0, False, False
-            end = pos
-            for end in range(pos, len(script)):
-                char = script[end]
-                if quoted:
-                    if escaped:
-                        escaped = False
-                    elif char == "\\":
-                        escaped = True
-                    elif char == '"':
-                        quoted = False
-                elif char == '"':
-                    quoted = True
-                elif char in "[{":
-                    depth += 1
-                elif char in "]}":
-                    depth -= 1
-                elif char == ")" and depth == 0:
-                    break
+        for argument in javascript_call_arguments(script, "self.__next_f.push("):
             try:
-                pushed = json.loads(script[pos:end])
+                pushed = json.loads(argument)
                 yield pushed
                 if isinstance(pushed, list) and len(pushed) > 1 and isinstance(pushed[1], str):
                     embedded = pushed[1].strip()
@@ -520,7 +623,6 @@ def html_payloads(source: str) -> Iterable[Any]:
                             pass
             except json.JSONDecodeError:
                 pass
-            cursor = max(end + 1, pos + 1)
 
 
 def read_chatgpt_share(url: str) -> dict[str, Any]:
@@ -605,11 +707,25 @@ def log(repo: Path, url: str, title: str, status: str, report: dict[str, Any] | 
 
 def prepare(args: argparse.Namespace) -> dict[str, Any]:
     repo = repo_root(args.repo)
-    initialize(repo)
     share_id(args.url)
-    inbox(repo, args.url, "processing")
     try:
         conversation = normalized_input(args.input, args.url) if args.input else read_chatgpt_share(args.url)
+    except Exception as exc:
+        if args.input:
+            raise
+        return {
+            "status": "browser_fallback_required",
+            "url": args.url,
+            "error": str(exc).replace("\n", " "),
+            "browser_fallback": {
+                "requires_confirmation": True,
+                "instruction": "Ask the user before opening the public shared link in a browser to read it.",
+            },
+        }
+
+    initialize(repo)
+    inbox(repo, args.url, "processing")
+    try:
         content_hash = digest(conversation)
         prior = load_registry(repo)["sources"].get(args.url)
         if isinstance(prior, dict) and prior.get("status") == "processed" and prior.get("content_hash") == content_hash:

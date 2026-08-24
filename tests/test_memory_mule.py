@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -76,6 +77,69 @@ class MemoryMuleTests(unittest.TestCase):
         second = memory_mule.digest(json.loads(json.dumps(normalized)))
         self.assertEqual(first, second)
         self.assertTrue(first.startswith("sha256:"))
+
+    def test_react_router_stream_recovers_a_shared_conversation(self) -> None:
+        packed = [
+            {"_1": 2},
+            "loaderData",
+            {"_3": 4},
+            "conversation",
+            {"_5": 6, "_7": 8, "_9": 10},
+            "title",
+            "Latest shared chat",
+            "current_node",
+            "assistant-node",
+            "mapping",
+            {"user-node": 11, "assistant-node": 12},
+            {"parent": None, "message": 13},
+            {"parent": "user-node", "message": 14},
+            {"author": {"role": "user"}, "content": {"parts": ["Hello"]}},
+            {"author": {"role": "assistant"}, "content": {"parts": ["Hi there"]}},
+        ]
+        frame = json.dumps(json.dumps(packed))
+        source = (
+            "<script>window.__reactRouterContext.streamController.enqueue("
+            + frame
+            + ");</script>"
+        )
+
+        normalized = next(
+            result
+            for payload in memory_mule.html_payloads(source)
+            if (result := memory_mule.normalize(payload, "https://chatgpt.com/share/example"))
+        )
+
+        self.assertEqual(normalized["title"], "Latest shared chat")
+        self.assertEqual(
+            normalized["messages"],
+            [
+                {"role": "user", "content": "Hello", "index": 0},
+                {"role": "assistant", "content": "Hi there", "index": 1},
+            ],
+        )
+
+    def test_prepare_requires_browser_confirmation_without_writing_on_read_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            args = type(
+                "Args",
+                (),
+                {
+                    "repo": str(repo),
+                    "url": "https://chatgpt.com/share/example",
+                    "output": str(repo / "normalized.json"),
+                    "input": None,
+                },
+            )()
+
+            with patch.object(memory_mule, "read_chatgpt_share", side_effect=RuntimeError("unreadable page")):
+                result = memory_mule.prepare(args)
+
+            self.assertEqual(result["status"], "browser_fallback_required")
+            self.assertTrue(result["browser_fallback"]["requires_confirmation"])
+            self.assertFalse((repo / "docs").exists())
+            self.assertFalse((repo / ".project-memory").exists())
+            self.assertFalse((repo / "normalized.json").exists())
 
     def test_share_url_validation_accepts_pasted_public_share_link(self) -> None:
         result = memory_mule.validate_share_url(
