@@ -78,6 +78,21 @@ class MemoryMuleTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertTrue(first.startswith("sha256:"))
 
+    def test_normalization_handles_react_router_circular_references(self) -> None:
+        conversation = {
+            "title": "Circular shared chat",
+            "messages": [{"role": "user", "content": "Still readable."}],
+        }
+        payload = {"conversation": conversation}
+        payload["cycle"] = payload
+
+        normalized = memory_mule.normalize(payload, "https://chatgpt.com/share/example")
+
+        self.assertIsNotNone(normalized)
+        assert normalized is not None
+        self.assertEqual(normalized["title"], "Circular shared chat")
+        self.assertEqual(normalized["messages"][0]["content"], "Still readable.")
+
     def test_react_router_stream_recovers_a_shared_conversation(self) -> None:
         packed = [
             {"_1": 2},

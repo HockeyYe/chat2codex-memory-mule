@@ -387,13 +387,24 @@ def fetch(url: str) -> tuple[str, str]:
 
 
 def walk(value: Any) -> Iterable[Any]:
-    yield value
-    if isinstance(value, dict):
-        for child in value.values():
-            yield from walk(child)
-    elif isinstance(value, list):
-        for child in value:
-            yield from walk(child)
+    """Traverse decoded payloads without following shared or circular references twice."""
+    seen: set[int] = set()
+
+    def visit(current: Any) -> Iterable[Any]:
+        if isinstance(current, (dict, list)):
+            identifier = id(current)
+            if identifier in seen:
+                return
+            seen.add(identifier)
+        yield current
+        if isinstance(current, dict):
+            for child in current.values():
+                yield from visit(child)
+        elif isinstance(current, list):
+            for child in current:
+                yield from visit(child)
+
+    yield from visit(value)
 
 
 def text_of(message: dict[str, Any]) -> str:
