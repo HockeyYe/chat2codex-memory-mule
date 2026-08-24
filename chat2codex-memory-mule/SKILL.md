@@ -75,7 +75,20 @@ Then update `Curated Source Roles` with its role and category. Distill only dura
 
 ## Import one shared session
 
-### 1. Read existing guidance
+### 1. Validate the pasted link locally
+
+Extract the intended ChatGPT URL from the user's current message and validate it before reading repository guidance, initializing memory, opening a browser, or calling a connector:
+
+```bash
+python scripts/memory_mule.py validate-share-url --text <exact-user-message>
+```
+
+Interpret the JSON printed to stdout:
+
+- `valid_share_url`: use its canonical `url` value as the source URL and continue.
+- `invalid_share_url`: tell the user that only a public shared link shaped like `https://chatgpt.com/share/<id>` can be imported, ask them to paste that link, and end the task immediately. A normal session URL (for example, `https://chatgpt.com/c/...`) must never be opened with an authenticated browser or connector. Do not guess, rewrite, or retry the URL, and make no project-memory changes or inbox/log entries.
+
+### 2. Read existing guidance
 
 Detect the target repository. Read its applicable `AGENTS.md` files before modifying anything. Then read:
 
@@ -86,7 +99,7 @@ Detect the target repository. Read its applicable `AGENTS.md` files before modif
 
 Read historical `sessions/` only when provenance, duplicate detection, or deeper context requires it.
 
-### 2. Prepare the source
+### 3. Prepare the source
 
 Run:
 
@@ -102,7 +115,7 @@ Interpret the JSON status printed to stdout:
 
 If the built-in reader cannot parse a currently valid shared page, obtain the full conversation with an available authenticated browser or supported connector, convert it to the normalized interface documented in `references/memory-model.md`, and rerun `prepare` with `--input <normalized-json>`. Do not bypass access controls or request private credentials.
 
-### 3. Distill conservatively
+### 4. Distill conservatively
 
 Read the complete normalized conversation. Produce candidate memories for:
 
@@ -119,7 +132,7 @@ Preserve epistemic status. If unsure whether a statement is a decision, classify
 
 Before writing tracked Markdown, redact secrets, credentials, private customer data, and unnecessary personal identifiers. Never copy a secret merely because the session contains it.
 
-### 4. Compute a memory diff
+### 5. Compute a memory diff
 
 Read `references/memory-model.md` completely before the first import in a task. For every candidate, search the relevant existing memory and assign exactly one relationship:
 
@@ -136,7 +149,7 @@ promotes_idea
 
 Apply the documented merge rule and source precedence. Before creating memory from a candidate, compare it with relevant canonical project documents from `source-map.md`, not only files already under `project-memory`. Never silently replace an accepted decision or principle. Keep ideas out of active plans unless the conversation contains an actual commitment.
 
-### 5. Stage and review the complete write set
+### 6. Stage and review the complete write set
 
 Prepare all proposed contents before changing accepted memory. The write set normally includes:
 
@@ -150,7 +163,7 @@ Use the schemas and naming rules in `references/memory-model.md`. Preserve exist
 
 Review the complete write set for contradictions, duplicates, speculative claims, and sensitive information. Then write it with the safest available atomic or patch-based mechanism. Do not write the full transcript into tracked files; the helper stores it under the gitignored raw directory.
 
-### 6. Finalize bookkeeping
+### 7. Finalize bookkeeping
 
 Create a temporary JSON report using this shape:
 
@@ -173,7 +186,7 @@ python scripts/memory_mule.py finalize --repo <repository> --url <url> --title <
 
 Finalize only after all accepted memory files and the session summary are successfully written. If a write fails, leave the inbox item pending or mark it failed with the helper and explain what remains; do not claim completion.
 
-### 7. Report the result
+### 8. Report the result
 
 Lead with `Project memory updated.` Then list the session title, created artifacts, updated artifacts, confirmed duplicates, and conflicts. State explicitly when no conflicts were found.
 

@@ -109,6 +109,9 @@ cp -R ./chat2codex-memory-mule "${CODEX_HOME:-$HOME/.codex}/skills/chat2codex-me
 https://chatgpt.com/share/...
 ```
 
+只接受 `https://chatgpt.com/share/<id>` 形式的公开分享链接。普通会话链接（例如
+`https://chatgpt.com/c/...`）会在本地校验后直接拒绝；Skill 不会为了读取它而打开带登录态的浏览器。
+
 整理单个现有文件，但不移动它：
 
 ```text

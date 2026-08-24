@@ -77,6 +77,20 @@ class MemoryMuleTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertTrue(first.startswith("sha256:"))
 
+    def test_share_url_validation_accepts_pasted_public_share_link(self) -> None:
+        result = memory_mule.validate_share_url(
+            "Please import [https://chatgpt.com/share/abc-123](https://chatgpt.com/share/abc-123)."
+        )
+
+        self.assertEqual(result["status"], "valid_share_url")
+        self.assertEqual(result["url"], "https://chatgpt.com/share/abc-123")
+
+    def test_share_url_validation_rejects_private_session_link(self) -> None:
+        result = memory_mule.validate_share_url("https://chatgpt.com/c/abc-123")
+
+        self.assertEqual(result["status"], "invalid_share_url")
+        self.assertEqual(result["reason"], "not_a_share_url")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -109,6 +109,9 @@ Use $chat2codex-memory-mule to process this conversation into project memory:
 https://chatgpt.com/share/...
 ```
 
+Only public links shaped like `https://chatgpt.com/share/<id>` are accepted. A normal session URL (for
+example, `https://chatgpt.com/c/...`) is rejected locally; the skill will not open an authenticated browser to read it.
+
 Organize one existing file without moving it:
 
 ```text

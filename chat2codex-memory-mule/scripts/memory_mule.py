@@ -312,13 +312,51 @@ Ideas are not requirements. Read historical sessions only when provenance or dee
 
 
 def share_id(url: str) -> str:
-    parsed = urlparse(url)
+    parsed = urlparse(url.strip())
     if parsed.scheme != "https" or parsed.hostname not in {"chatgpt.com", "www.chatgpt.com", "chat.openai.com"}:
         raise ValueError("Expected an HTTPS ChatGPT shared URL.")
     match = re.fullmatch(r"/share/([A-Za-z0-9-]+?)/?", parsed.path)
     if not match:
         raise ValueError("Expected a URL shaped like https://chatgpt.com/share/<id>.")
     return match.group(1)
+
+
+URL_PATTERN = re.compile(r"https?://[^\s<>\[\]()\"']+")
+
+
+def validate_share_url(text: str) -> dict[str, Any]:
+    """Extract and validate one ChatGPT share URL without accessing the network."""
+    candidates = []
+    for match in URL_PATTERN.finditer(text):
+        candidate = match.group(0).rstrip(".,;:!?")
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+
+    chatgpt_urls = [
+        candidate for candidate in candidates
+        if urlparse(candidate).hostname in {"chatgpt.com", "www.chatgpt.com", "chat.openai.com"}
+    ]
+    if len(chatgpt_urls) != 1:
+        return {
+            "status": "invalid_share_url",
+            "reason": "missing_or_ambiguous_chatgpt_url",
+            "message": "Provide exactly one ChatGPT shared link shaped like https://chatgpt.com/share/<id>.",
+        }
+
+    url = chatgpt_urls[0]
+    try:
+        identifier = share_id(url)
+    except ValueError:
+        return {
+            "status": "invalid_share_url",
+            "reason": "not_a_share_url",
+            "message": "A normal ChatGPT session URL is not importable. Provide https://chatgpt.com/share/<id>.",
+        }
+    return {
+        "status": "valid_share_url",
+        "url": f"https://chatgpt.com/share/{identifier}",
+        "share_id": identifier,
+    }
 
 
 class Scripts(HTMLParser):
@@ -639,6 +677,7 @@ def build_parser() -> argparse.ArgumentParser:
     command = commands.add_parser("scan"); command.add_argument("--repo"); command.add_argument("--file")
     command = commands.add_parser("prepare"); command.add_argument("--repo"); command.add_argument("--url", required=True)
     command.add_argument("--output", required=True); command.add_argument("--input")
+    command = commands.add_parser("validate-share-url"); command.add_argument("--text", required=True)
     command = commands.add_parser("finalize"); command.add_argument("--repo"); command.add_argument("--url", required=True)
     command.add_argument("--title", required=True); command.add_argument("--content-hash", required=True)
     command.add_argument("--session-file", required=True); command.add_argument("--report", required=True)
@@ -659,6 +698,8 @@ def main() -> int:
             result = {"status": "scanned", **scan_knowledge(target, args.file)}
         elif args.command == "prepare":
             result = prepare(args)
+        elif args.command == "validate-share-url":
+            result = validate_share_url(args.text)
         elif args.command == "finalize":
             result = finalize(args)
         elif args.command == "fail":
