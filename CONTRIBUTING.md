@@ -22,4 +22,4 @@ Thanks for helping improve Chat2Codex Memory Mule.
 
 ## Reporting security issues
 
-Do not open a public issue containing secrets, private shared links, personal data, or unpublished transcripts. Contact the repository owner privately through an appropriate GitHub channel until a dedicated security policy is configured.
+Follow [SECURITY.md](SECURITY.md). Do not open a public issue containing secrets, private shared links, personal data, or unpublished transcripts.

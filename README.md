@@ -42,13 +42,12 @@ README / ADR / docs / plans    chatgpt.com/share/...
 
 本项目没有照搬某个记忆框架，而是组合了下列公开思想，并针对仓库内、Markdown 优先、人工可审查的使用方式做了轻量化取舍：
 
-| 参考来源 | 借鉴的思想 | 在本项目中的对应设计 |
-| --- | --- | --- |
-| [OpenAI Codex：Use cases](https://learn.chatgpt.com/use-cases) | 将可重复的工作流程封装为可复用 Skill | 用 `SKILL.md` 描述稳定工作流，用 Python 助手承接确定性处理 |
-| [Michael Nygard：Documenting Architecture Decisions](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) | 用短小、带上下文和状态的记录保存架构决策，并保留被替代的历史 | `decisions/` 保存编号决策；冲突和替代关系需要显式审查 |
-| [MemGPT：Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560) | 通过分层记忆缓解有限上下文问题 | `current-state.md` 提供紧凑工作上下文，分类文档和会话记录承担长期记忆 |
-| [Generative Agents](https://arxiv.org/abs/2304.03442) | 从经历记录中提取更高层的反思，并让记忆支持后续计划 | `sessions/` 保存会话经历，原则、决策和计划文件保存逐步提炼的长期知识 |
-| [W3C PROV-O](https://www.w3.org/TR/prov-o/) | 来源追踪应描述信息、处理活动及其关系 | 保存来源 URL、处理时间、内容哈希、注册表和处理日志 |
+| 参考来源                                                                                                                          | 借鉴的思想                          | 在本项目中的对应设计                                   |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | -------------------------------------------- |
+| [Michael Nygard：Documenting Architecture Decisions](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) | 用短小、带上下文和状态的记录保存架构决策，并保留被替代的历史 | `decisions/` 保存编号决策；冲突和替代关系需要显式审查            |
+| [MemGPT：Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560)                                                  | 通过分层记忆缓解有限上下文问题                | `current-state.md` 提供紧凑工作上下文，分类文档和会话记录承担长期记忆 |
+| [Generative Agents](https://arxiv.org/abs/2304.03442)                                                                         | 从经历记录中提取更高层的反思，并让记忆支持后续计划      | `sessions/` 保存会话经历，原则、决策和计划文件保存逐步提炼的长期知识     |
+| [W3C PROV-O](https://www.w3.org/TR/prov-o/)                                                                                   | 来源追踪应描述信息、处理活动及其关系             | 保存来源 URL、处理时间、内容哈希、注册表和处理日志                  |
 
 这些来源是设计参考，不是运行时依赖。本项目不是 MemGPT、Generative Agents 或 PROV-O 的完整实现，也不声称与这些项目兼容；它只采用了适合代码仓库记忆管理的概念。
 
@@ -151,19 +150,19 @@ docs/project-memory/
 
 完整模板与合并规则见 [`references/memory-model.md`](chat2codex-memory-mule/references/memory-model.md)。
 
-| 位置 | 类别 | 回答的问题 | 内容与状态 |
-| --- | --- | --- | --- |
-| `source-map.md` | 来源地图 | 仓库里本来有哪些权威知识？ | 扫描得到的现有文档清单（附带主题启发式分组）加上人工复核后的 `Curated Source Roles`，例如 `canonical_source`、`supporting_source`、`raw_note`、`session_like`、`operational_only`、`not_project_memory`。它把原有知识接入记忆体系，但不复制原文 |
-| `current-state.md` | 当前状态 | 我们现在处在什么位置？ | 由产品定义、阶段、优先级、架构、确认约束、“Not Doing Now”与下一步组成的紧凑派生视图；只吸收实质性变化，不堆砌零碎观察 |
-| `principles.md` | 原则 | 我们一贯怎么做事？ | 可复用、长期适用、比单次实现选择更通用的稳定规则；新增门槛刻意较高 |
-| `decisions/` | 决策 | 哪些方向已经定了？ | 一个决策一个文件（`DEC-001`……），包含背景、决定、理由、备选方案与后果；状态可以是 `proposed`、`accepted`、`needs-review`、`superseded`、`rejected` |
-| `decisions/*` (`status: rejected`) | 已否决方向 | 哪些路走不通？ | 只在讨论中明确拒绝某个方向时记录，保留原因以及可能的“Revisit When”条件；随口的犹豫不算拒绝 |
-| `research/` | 研究 | 技术选项或外部事实是什么样？ | 按主题整理发现、证据、含义与置信度；有外部来源就保留引用，无法验证或时效敏感的说法会被标注为不确定 |
-| `ideas/` | 想法 | 还有什么可能值得做？ | 状态可以为 `exploration`、`candidate`、`validated`、`promoted`、`rejected`；想法即便被采纳，原文件也会保留并链接到承接它的位置 |
-| `open-questions.md` | 开放问题 | 还有什么没想清楚？ | 用 `OQ-001` 这样的编号集中管理活跃问题的动机、假设与验证路径；导入时发现的知识冲突也会以 `Memory Conflict` 条目进入这里，等待人工裁决 |
-| `plans/active/`、`plans/completed/` | 计划 | 我们承诺了什么？ | 包含目标、范围、任务、阻塞与完成标准的执行记录；“听起来不错”的头脑风暴不会自动晋升成计划 |
-| `sessions/` | 会话摘要 | 这些知识从哪里来？ | 每次成功导入生成一份提炼摘要，带来源 URL、处理时间与内容哈希；完整原始转写保存在被 Git 忽略的 `.project-memory/raw/` |
-| `.project-memory/registry.json`、`inbox.md`、`processing-log.md` | 流水线登记簿 | 每次导入进行到哪一步？ | 注册表、收件箱与处理日志承担去重和审计书签职责，属于系统状态而不是项目知识本身 |
+| 位置                                                             | 类别     | 回答的问题          | 内容与状态                                                                                                                                                                                 |
+| -------------------------------------------------------------- | ------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source-map.md`                                                | 来源地图   | 仓库里本来有哪些权威知识？  | 扫描得到的现有文档清单（附带主题启发式分组）加上人工复核后的 `Curated Source Roles`，例如 `canonical_source`、`supporting_source`、`raw_note`、`session_like`、`operational_only`、`not_project_memory`。它把原有知识接入记忆体系，但不复制原文 |
+| `current-state.md`                                             | 当前状态   | 我们现在处在什么位置？    | 由产品定义、阶段、优先级、架构、确认约束、“Not Doing Now”与下一步组成的紧凑派生视图；只吸收实质性变化，不堆砌零碎观察                                                                                                                    |
+| `principles.md`                                                | 原则     | 我们一贯怎么做事？      | 可复用、长期适用、比单次实现选择更通用的稳定规则；新增门槛刻意较高                                                                                                                                                     |
+| `decisions/`                                                   | 决策     | 哪些方向已经定了？      | 一个决策一个文件（`DEC-001`……），包含背景、决定、理由、备选方案与后果；状态可以是 `proposed`、`accepted`、`needs-review`、`superseded`、`rejected`                                                                           |
+| `decisions/*` (`status: rejected`)                             | 已否决方向  | 哪些路走不通？        | 只在讨论中明确拒绝某个方向时记录，保留原因以及可能的“Revisit When”条件；随口的犹豫不算拒绝                                                                                                                                  |
+| `research/`                                                    | 研究     | 技术选项或外部事实是什么样？ | 按主题整理发现、证据、含义与置信度；有外部来源就保留引用，无法验证或时效敏感的说法会被标注为不确定                                                                                                                                     |
+| `ideas/`                                                       | 想法     | 还有什么可能值得做？     | 状态可以为 `exploration`、`candidate`、`validated`、`promoted`、`rejected`；想法即便被采纳，原文件也会保留并链接到承接它的位置                                                                                           |
+| `open-questions.md`                                            | 开放问题   | 还有什么没想清楚？      | 用 `OQ-001` 这样的编号集中管理活跃问题的动机、假设与验证路径；导入时发现的知识冲突也会以 `Memory Conflict` 条目进入这里，等待人工裁决                                                                                                     |
+| `plans/active/`、`plans/completed/`                             | 计划     | 我们承诺了什么？       | 包含目标、范围、任务、阻塞与完成标准的执行记录；“听起来不错”的头脑风暴不会自动晋升成计划                                                                                                                                         |
+| `sessions/`                                                    | 会话摘要   | 这些知识从哪里来？      | 每次成功导入生成一份提炼摘要，带来源 URL、处理时间与内容哈希；完整原始转写保存在被 Git 忽略的 `.project-memory/raw/`                                                                                                            |
+| `.project-memory/registry.json`、`inbox.md`、`processing-log.md` | 流水线登记簿 | 每次导入进行到哪一步？    | 注册表、收件箱与处理日志承担去重和审计书签职责，属于系统状态而不是项目知识本身                                                                                                                                               |
 
 理解这套结构时，还有几个边界很重要：
 
