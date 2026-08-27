@@ -146,6 +146,34 @@ docs/project-memory/
 └── raw/
 ```
 
+## Memory category design
+
+Project memory is not a verbatim archive of conversations. Every item keeps an explicit epistemic status: already accepted, still being explored, a durable working rule, a phase-specific commitment, evidence-backed research, or just an idea worth noting. Keeping these apart means later tasks never have to guess how trustworthy a sentence is, and ordinary conversation cannot quietly escalate into a project decision.
+
+Full templates and merge rules live in [`references/memory-model.md`](chat2codex-memory-mule/references/memory-model.md).
+
+| Location | Category | Question it answers | Content and states |
+| --- | --- | --- | --- |
+| `source-map.md` | Source map | Which authoritative materials already exist? | A scanner-generated inventory of existing documents (with heuristic topic grouping) plus human-reviewed `Curated Source Roles` such as `canonical_source`, `supporting_source`, `raw_note`, `session_like`, `operational_only`, and `not_project_memory`. It connects originals into memory without copying them |
+| `current-state.md` | Current state | Where are we right now? | A compact derived view covering product definition, phase, priorities, architecture, confirmed constraints, "Not Doing Now", and next steps; it absorbs material changes only |
+| `principles.md` | Principles | How do we consistently work? | Reusable, long-lived stable rules that generalize beyond a single implementation choice; the bar for adding one is deliberately high |
+| `decisions/` | Decisions | Which directions were settled? | One file per decision (`DEC-001`, ...) recording context, choice, rationale, alternatives, and consequences; states include `proposed`, `accepted`, `needs-review`, `superseded`, `rejected` |
+| `decisions/*` (`status: rejected`) | Rejected directions | Which paths did not work? | Written only when a direction was explicitly declined, preserving the reason and any "Revisit When" condition; casual hesitation does not count |
+| `research/` | Research | What do options and external facts look like? | Topic-level findings, evidence, implications, and confidence; external citations are kept, while unverifiable or time-sensitive statements stay marked as uncertain |
+| `ideas/` | Ideas | What might be worth exploring later? | States range from `exploration` to `candidate`, `validated`, `promoted`, `rejected`; even promoted ideas remain in place and link to whatever absorbed them |
+| `open-questions.md` | Open questions | What is unresolved? | Numbered active questions (`OQ-001`, ...) tracking motivation, hypothesis, and validation path; knowledge conflicts found during imports also arrive here as `Memory Conflict` entries awaiting human resolution |
+| `plans/active/`, `plans/completed/` | Plans | What did we commit to? | Execution records holding goal, scope, tasks, blockers, and completion criteria; brainstorming never automatically promotes itself into a plan |
+| `sessions/` | Session summaries | Where did this knowledge come from? | One distilled summary per successfully imported snapshot with source URL, processing time, and content hash; full transcripts stay local under the gitignored `.project-memory/raw/` directory |
+| `.project-memory/registry.json`, `inbox.md`, `processing-log.md` | Pipeline ledger | How far has each import progressed? | Registry, inbox, and processing log handle deduplication and audit bookmarks; they are system state, not project knowledge |
+
+A few boundaries matter when reading this structure:
+
+- **Authority ladder:** when information conflicts, preference descends from code, tests, schemas, and configuration to explicit documentation and accepted ADRs/RFCs, then accepted decisions stored in memory, then derived views like `current-state.md`, and finally ideas and historical sessions.
+- **Idea ≠ plan ≠ decision:** during import every candidate receives one relationship tag (`new`, `supports_existing`, `extends_existing`, `duplicates_existing`, `conflicts_existing`, `supersedes_existing`, and others) before landing anywhere. Ideas need real commitment before becoming plans, and only explicit new decisions may supersede old ones.
+- **Research never rewrites state automatically:** persuasive findings influence `current-state.md` or spawn decisions only after they genuinely change project direction.
+- **Supersession preserves history:** replaced decision files survive with bidirectional links so earlier trade-offs remain traceable.
+- **Default reading path:** start with `current-state.md`, `principles.md`, and relevant accepted decisions; add `plans/active/` whenever you are actively executing; follow `source-map.md` outward when provenance matters. Treat `ideas/` and older `sessions/` as non-default context you open only to trace origins or look for inspiration.
+
 ## Privacy and safety
 
 - Only import conversations you are authorized to process.
