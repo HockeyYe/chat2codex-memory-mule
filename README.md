@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | [English](README_EN.md)
 
+![Chat2Codex Memory Mule carries memory from GPT conversations into Codex](docs/assets/chat2codex-memory-mule-hero.png)
+
 让 Codex 记住项目，而不必每次读完整个项目。
 
 Chat2Codex Memory Mule 是一个仓库原生的 Codex Skill：它会扫描项目中已有的知识源，也可以提炼公开的 ChatGPT 分享会话，再将它们整理为紧凑、可追溯、可长期维护的项目记忆。Markdown 是各类工具之间的兼容层；原始文件继续留在原位，已经接受的知识不会被静默覆盖。
@@ -71,6 +73,16 @@ chat2codex-memory-mule/
 - 导入 ChatGPT 分享链接时需要网络或浏览器访问能力
 
 Python 助手仅使用标准库。
+
+### 安装 Python 环境
+
+先安装 Python 3.10 或更高版本，并确认 `python --version` 的输出符合要求。项目没有第三方 Python 运行时依赖；仍可运行下面的命令，以便在自动化安装流程中统一处理依赖文件：
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+`requirements.txt` 故意为空依赖清单；Codex、Git 和浏览器访问能力需要按你的操作系统单独安装或配置。
 
 ## 安装
 

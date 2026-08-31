@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | [English](README_EN.md)
 
+![Chat2Codex Memory Mule carries memory from GPT conversations into Codex](docs/assets/chat2codex-memory-mule-hero.png)
+
 Make Codex remember the project without making it read the whole project every time.
 
 Chat2Codex Memory Mule is a repository-native Codex skill that scans existing project knowledge and distills public ChatGPT shared conversations into compact, traceable, long-lived project memory. Markdown acts as the interoperability layer. Original files stay in place, and accepted knowledge is never silently overwritten.
@@ -71,6 +73,16 @@ The folder above is the complete installable skill. Repository-level documentati
 - Network or browser access when importing a ChatGPT shared link
 
 The helper uses only the Python standard library.
+
+### Set up Python
+
+Install Python 3.10 or newer, then verify that `python --version` reports a supported version. The project has no third-party Python runtime dependencies; you can still run the following command to handle the dependency file consistently in automated setup:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+`requirements.txt` intentionally contains no packages. Install or configure Codex, Git, and browser access separately for your operating system.
 
 ## Install
 

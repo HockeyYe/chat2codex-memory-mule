@@ -1,0 +1,2 @@
+# Chat2Codex Memory Mule has no third-party Python runtime dependencies.
+# Python 3.10 or newer is required; install Python separately before using this file.
