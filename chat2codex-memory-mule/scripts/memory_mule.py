@@ -661,6 +661,31 @@ def read_chatgpt_share(url: str) -> dict[str, Any]:
     raise RuntimeError("Unable to parse the shared conversation. " + " | ".join(errors[-2:]))
 
 
+def read_share_only(args: argparse.Namespace) -> dict[str, Any]:
+    """Read one public share URL without touching project-memory state.
+
+    This command is intentionally separate from ``prepare`` so a caller can
+    request one-time elevated network approval for the read itself. The only
+    remote operation is a GET against the public share URL (and its existing
+    public ChatGPT share endpoints); no repository initialization, inbox entry,
+    registry update, or memory write is performed here.
+    """
+    share_id(args.url)
+    conversation = read_chatgpt_share(args.url)
+    serialized = json.dumps(conversation, ensure_ascii=False, indent=2) + "\n"
+    output = None
+    if args.output:
+        output = Path(args.output).resolve()
+        atomic_write(output, serialized)
+    return {
+        "status": "ready",
+        "url": args.url,
+        "title": conversation["title"],
+        "output": str(output) if output else None,
+        "messages": len(conversation["messages"]),
+    }
+
+
 def normalized_input(path: str, url: str) -> dict[str, Any]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     result = normalize(payload, url)
@@ -724,10 +749,22 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     except Exception as exc:
         if args.input:
             raise
+        permission_error = isinstance(exc, PermissionError) or "Operation not permitted" in str(exc)
+        authorization = None
+        if permission_error:
+            authorization = {
+                "requires_user_approval": True,
+                "scope": "one read-only public-share retrieval",
+                "url": args.url,
+                "command": "read-share",
+                "network_side_effects": "HTTPS GET only; no repository or memory-state changes",
+                "next_step": "Run the read-share command once with sandbox_permissions=require_escalated, then rerun prepare with --input.",
+            }
         return {
             "status": "browser_fallback_required",
             "url": args.url,
             "error": str(exc).replace("\n", " "),
+            "authorization": authorization,
             "browser_fallback": {
                 "requires_confirmation": True,
                 "instruction": "Ask the user before opening the public shared link in a browser to read it.",
@@ -804,6 +841,7 @@ def build_parser() -> argparse.ArgumentParser:
     command = commands.add_parser("scan"); command.add_argument("--repo"); command.add_argument("--file")
     command = commands.add_parser("prepare"); command.add_argument("--repo"); command.add_argument("--url", required=True)
     command.add_argument("--output", required=True); command.add_argument("--input")
+    command = commands.add_parser("read-share"); command.add_argument("--url", required=True); command.add_argument("--output")
     command = commands.add_parser("validate-share-url"); command.add_argument("--text", required=True)
     command = commands.add_parser("finalize"); command.add_argument("--repo"); command.add_argument("--url", required=True)
     command.add_argument("--title", required=True); command.add_argument("--content-hash", required=True)
@@ -825,6 +863,8 @@ def main() -> int:
             result = {"status": "scanned", **scan_knowledge(target, args.file)}
         elif args.command == "prepare":
             result = prepare(args)
+        elif args.command == "read-share":
+            result = read_share_only(args)
         elif args.command == "validate-share-url":
             result = validate_share_url(args.text)
         elif args.command == "finalize":

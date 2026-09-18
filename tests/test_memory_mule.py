@@ -152,9 +152,56 @@ class MemoryMuleTests(unittest.TestCase):
 
             self.assertEqual(result["status"], "browser_fallback_required")
             self.assertTrue(result["browser_fallback"]["requires_confirmation"])
+            self.assertIsNone(result["authorization"])
             self.assertFalse((repo / "docs").exists())
             self.assertFalse((repo / ".project-memory").exists())
             self.assertFalse((repo / "normalized.json").exists())
+
+    def test_prepare_describes_one_time_read_only_escalation_on_permission_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            args = type(
+                "Args",
+                (),
+                {
+                    "repo": str(repo),
+                    "url": "https://chatgpt.com/share/example",
+                    "output": str(repo / "normalized.json"),
+                    "input": None,
+                },
+            )()
+
+            with patch.object(memory_mule, "read_chatgpt_share", side_effect=PermissionError("Operation not permitted")):
+                result = memory_mule.prepare(args)
+
+            authorization = result["authorization"]
+            self.assertTrue(authorization["requires_user_approval"])
+            self.assertEqual(authorization["scope"], "one read-only public-share retrieval")
+            self.assertEqual(authorization["command"], "read-share")
+            self.assertIn("HTTPS GET only", authorization["network_side_effects"])
+            self.assertFalse((repo / "docs").exists())
+            self.assertFalse((repo / ".project-memory").exists())
+
+    def test_read_share_only_does_not_initialize_memory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            output = repo / "normalized.json"
+            args = type("Args", (), {"url": "https://chatgpt.com/share/example", "output": str(output)})()
+            conversation = {
+                "title": "Public share",
+                "source_url": args.url,
+                "messages": [{"role": "user", "content": "Hello"}],
+                "metadata": {},
+            }
+
+            with patch.object(memory_mule, "read_chatgpt_share", return_value=conversation):
+                result = memory_mule.read_share_only(args)
+
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["messages"], 1)
+            self.assertEqual(json.loads(output.read_text(encoding="utf-8")), conversation)
+            self.assertFalse((repo / "docs").exists())
+            self.assertFalse((repo / ".project-memory").exists())
 
     def test_share_url_validation_accepts_pasted_public_share_link(self) -> None:
         result = memory_mule.validate_share_url(

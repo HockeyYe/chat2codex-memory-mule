@@ -111,7 +111,19 @@ Interpret the JSON status printed to stdout:
 
 - `ready`: continue with the normalized conversation at `output`.
 - `already_processed`: report that no new memory changes are required and stop.
-- `browser_fallback_required`: the non-browser reader could not recover the public conversation. Do not open a browser or read the conversation yet. Ask the user whether they want to authorize opening that exact public shared link in a browser as a fallback. If they confirm, obtain the complete conversation, convert it to the normalized interface documented in `references/memory-model.md`, and rerun `prepare` with `--input <normalized-json>`.
+- `browser_fallback_required`: the non-browser reader could not recover the public conversation. Do not open a browser or retry the URL silently.
+  - If the result contains a non-null `authorization` object, report its exact URL and scope, then ask the user to approve a single elevated command for a read-only public-share retrieval. The approval must be requested through the command tool, not inferred from the user's general request to import a session.
+  - After the user approves, run the helper's `read-share` command exactly once with `sandbox_permissions: require_escalated`, using the validated URL and a temporary output path. The command must be limited to the public share retrieval; do not substitute a shell pipeline, broad network probe, package install, or unrestricted domain allowlist. The command writes only the normalized response to the temporary output path and does not initialize or modify project memory.
+  - Example command shape (adapt paths and the validated URL; keep the output path temporary):
+
+    ```bash
+    python <skill-root>/scripts/memory_mule.py read-share \
+      --url <validated-chatgpt-share-url> \
+      --output <temporary-normalized-json>
+    ```
+
+    Use the command tool's `require_escalated` sandbox setting with a user-facing justification such as: `Allow one-time read-only HTTPS access to this exact public ChatGPT share URL; no repository or memory-state changes.`
+  - If the elevated read succeeds, rerun `prepare` with `--input <normalized-json>`. If it fails or the user declines, ask whether to authorize opening that exact public shared link in a browser as the fallback. If the user confirms, obtain the complete conversation, convert it to the normalized interface documented in `references/memory-model.md`, and rerun `prepare` with `--input <normalized-json>`.
 - a nonzero exit: report the concise error. The helper records the failed inbox item and processing-log entry; do not modify accepted project memory.
 
 The non-browser reader supports current React Router stream frames from public share pages before requesting browser fallback. Never bypass access controls or request private credentials.
